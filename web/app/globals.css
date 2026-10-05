@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0b0b0d;
+  --foreground: #e4e4e7;
+  --accent: #f5a524;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Soft amber glow behind hero sections */
+.glow {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgba(245, 165, 36, 0.14), transparent 70%),
+    radial-gradient(40% 40% at 85% 10%, rgba(96, 165, 250, 0.08), transparent 70%);
+}

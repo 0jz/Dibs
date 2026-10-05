@@ -1,0 +1,25 @@
+{
+  "source": "Measured on the phone in the shop browser. This file does not contain invented model scores.",
+  "stress": {
+    "what": "WebGL core load",
+    "maxSeconds": 20,
+    "url": "/stress?profile=phone&mode=core&seconds=20"
+  },
+  "endurance": {
+    "what": "VRAM-style bandwidth load, the wear a miner would show, without running a miner",
+    "maxSeconds": 25,
+    "url": "/stress?profile=phone&mode=memory&seconds=25",
+    "battery": "start and end charge from the browser Battery Status API when the phone allows it"
+  },
+  "fieldDataset": {
+    "name": "GreenHub Farmer",
+    "url": "https://greenhubproject.org/dataset/",
+    "license": "see GreenHub",
+    "note": "Crowdsourced Android battery samples. The public dump is from August 2020 and is multi-gigabyte raw telemetry, not a GPU score table, so it is not vendored here. Ingest it later into this API; do not fill gaps with guessed scores."
+  },
+  "labDatasetTried": {
+    "name": "Generation Mobile CPU Performance and Power",
+    "url": "https://github.com/Matthalp-zz/mobile-cpu-perf-power-data",
+    "note": "The paper's phones.csv / perf.csv / power.csv are no longer in the repository (README only), so they could not be imported."
+  }
+}

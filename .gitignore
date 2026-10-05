@@ -1,0 +1,13 @@
+node_modules/
+web/node_modules/
+web/.next/
+web/data/
+web/out/
+.env
+.env.*
+*.pem
+*.tsbuildinfo
+keypairs/
+__pycache__/
+*.pyc
+.DS_Store
