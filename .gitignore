@@ -8,6 +8,7 @@ web/out/
 *.pem
 *.tsbuildinfo
 keypairs/
+program/escrow/target/
 __pycache__/
 *.pyc
 .DS_Store
