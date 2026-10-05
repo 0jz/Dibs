@@ -1,0 +1,16 @@
+[package]
+name = "dibs-escrow"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "dibs_escrow"
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+solana-program = "=1.18.26"
+spl-token = { version = "=4.0.0", features = ["no-entrypoint"] }

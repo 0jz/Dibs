@@ -1,11 +1,13 @@
 import { requireStaff } from "@/lib/auth";
 import { newId, sha256, STORE_NAME, updateDb } from "@/lib/db";
+import { priceToBase } from "@/lib/escrow/math";
 import type { Grade, Listing, ListingKind } from "@/lib/types";
+import { PublicKey } from "@solana/web3.js";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 const GRADES: Grade[] = ["A", "B", "C"];
-const CURRENCIES: Listing["currency"][] = ["EUR", "USDC", "MON"];
+const CURRENCIES: Listing["currency"][] = ["EUR", "USDC", "MON", "SOL"];
 
 export async function POST(request: Request, { params }: Ctx) {
   const denied = await requireStaff();
@@ -16,6 +18,19 @@ export async function POST(request: Request, { params }: Ctx) {
   const title = String(body.title ?? "").trim();
   const seller = String(body.seller ?? "").trim();
   const price = Number(body.price);
+  const currency = CURRENCIES.includes(body.currency) ? body.currency : "EUR";
+  const onChain = currency === "SOL" || currency === "USDC";
+  let sellerWallet = "";
+  let base: string | undefined;
+  if (onChain) {
+    sellerWallet = String(body.sellerWallet ?? "").trim();
+    try {
+      if (sellerWallet !== new PublicKey(sellerWallet).toBase58()) throw new Error("bad wallet");
+      base = priceToBase(price, currency).toString();
+    } catch {
+      return Response.json({ error: "SOL and USDC listings need a Solana seller wallet and a price large enough to hold 10% back" }, { status: 400 });
+    }
+  }
   if (!title || !seller || !(price > 0)) {
     return Response.json({ error: "Title, seller and a positive price are required" }, { status: 400 });
   }
@@ -54,6 +69,9 @@ export async function POST(request: Request, { params }: Ctx) {
       grade: GRADES.includes(body.grade) ? body.grade : "B",
       sealId: String(body.sealId ?? "").trim(),
       notes: String(body.notes ?? "").trim(),
+      sellerWallet,
+      priceBase: base ?? null,
+      currency,
     };
 
     const listing: Listing = {
@@ -61,8 +79,10 @@ export async function POST(request: Request, { params }: Ctx) {
       sessionId: session.id,
       title,
       price,
-      currency: CURRENCIES.includes(body.currency) ? body.currency : "EUR",
+      currency,
       seller,
+      sellerWallet: sellerWallet || undefined,
+      priceBase: base,
       store: report.store,
       grade: report.grade,
       notes: report.notes,

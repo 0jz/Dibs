@@ -87,8 +87,12 @@ export type Listing = {
   sessionId: string;
   title: string;
   price: number;
-  currency: "EUR" | "USDC" | "MON";
+  currency: "EUR" | "USDC" | "MON" | "SOL";
   seller: string;
+  /** Seller's Solana wallet. Required for SOL and USDC escrow. */
+  sellerWallet?: string;
+  /** Integer base units: lamports for SOL, 6-decimal minor units for USDC. */
+  priceBase?: string;
   store: string;
   grade: Grade;
   notes: string;

@@ -46,7 +46,22 @@ The store **never holds stock overnight**, so it carries no theft or storage ris
 
 ## Web app + staff panel (built 2026-10-05) — `web/`
 
-Next.js 16 app plus a Python test agent. Data is stored in `web/data/db.json` (gitignored). No blockchain yet: the "Buy with escrow" button is disabled and "On-chain" shows *pending anchor*.
+Next.js 16 app plus a Python test agent. Data is stored in `web/data/db.json` (gitignored).
+
+**Escrow (Solana devnet).** SOL is the devnet rail. USDC (`4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`, 6 decimals) is the other rail. EUR prices are not locked on-chain. Build order:
+
+1. Payout rules in `web/lib/escrow/math.ts` and `program/escrow` (10% holdback, 4% fee, timeouts frozen at init, minimum 60 seconds).
+2. Seller opens the listing (shop key co-signs). Buyer pays the exact base units into the listing account.
+3. Confirm is Shipped-only and the buyer must sign. A Match from `/api/verify` does not release funds.
+4. Silence pays the seller only after the frozen confirm timeout. An unshipped dispute can be refunded after its timeout. Shop login resolves shipped disputes and claims.
+
+The program binary is built by GitHub Actions (this machine has no Rust). After the `dibs-escrow` artifact is in `program/escrow/target/deploy/dibs_escrow.so`:
+
+```
+node web/scripts/devnet.mjs
+```
+
+That writes `keypairs/` (gitignored), deploys, and inits. Set `ESCROW_TIMEOUT_SECS=120` only for a live demo. Phantom must be on Devnet. USDC comes from https://faucet.circle.com.
 
 **Run it**
 ```

@@ -6,6 +6,7 @@ import { GRADE_INFO, date, money, shortHash } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ResultStats, SpecList, TelemetryPanel } from "@/components/ReportView";
 import { CopyCommand } from "@/components/CopyCommand";
+import { EscrowBox } from "@/components/escrow/EscrowBox";
 
 export default async function ListingPage({ params }: PageProps<"/listing/[id]">) {
   const { id } = await params;
@@ -64,17 +65,14 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
           <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
               <div className="text-3xl font-semibold text-white">{money(listing.price, listing.currency)}</div>
-              <button
-                disabled
-                className="mt-4 w-full cursor-not-allowed rounded-lg bg-amber-400/90 px-4 py-2.5 font-medium text-black opacity-60"
-                title="Escrow contract is the next build step"
-              >
-                Buy with escrow
-              </button>
-              <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                Payment is held in USDC escrow on Solana and released to the seller only after the delivery check matches. (Escrow contract
-                coming next.)
-              </p>
+              <EscrowBox
+                listingId={listing.id}
+                currency={listing.currency}
+                sellerWallet={listing.sellerWallet}
+                priceBase={listing.priceBase}
+                deviceHash={listing.deviceHash}
+                verifyMatch={verifications[0] ? verifications[0].match : null}
+              />
             </div>
 
             <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 text-sm">
@@ -84,7 +82,7 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
                 <div className="flex justify-between gap-3"><dt className="text-zinc-500">Seal ID</dt><dd className="font-mono text-zinc-200">{listing.sealId || "—"}</dd></div>
                 <div className="flex justify-between gap-3"><dt className="text-zinc-500">{part ? "GPU fingerprint" : "Device fingerprint"}</dt><dd className="font-mono text-zinc-200" title={listing.deviceHash}>{shortHash(listing.deviceHash)}</dd></div>
                 <div className="flex justify-between gap-3"><dt className="text-zinc-500">Report hash</dt><dd className="font-mono text-zinc-200" title={listing.reportHash}>{shortHash(listing.reportHash)}</dd></div>
-                <div className="flex justify-between gap-3"><dt className="text-zinc-500">On-chain</dt><dd className="text-amber-300/90">pending anchor</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-zinc-500">On-chain</dt><dd className="text-right text-zinc-300">{listing.priceBase ? `${listing.currency} devnet escrow` : "pending anchor"}</dd></div>
               </dl>
             </div>
 

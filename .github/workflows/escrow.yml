@@ -1,0 +1,24 @@
+name: Build escrow program
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "program/escrow/**"
+      - ".github/workflows/escrow.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Solana 1.18.26
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v1.18.26/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Compile SBF program
+        run: cargo build-sbf --manifest-path program/escrow/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dibs-escrow
+          path: program/escrow/target/deploy/dibs_escrow.so

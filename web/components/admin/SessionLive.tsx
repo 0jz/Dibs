@@ -224,7 +224,8 @@ function PublishForm({ session, onPublished }: { session: Session; onPublished: 
     grade: "A" as Grade,
     seller: "",
     price: "",
-    currency: "EUR" as Listing["currency"],
+    currency: "SOL" as Listing["currency"],
+    sellerWallet: "",
     sealId: "",
     notes: "",
   });
@@ -320,17 +321,23 @@ function PublishForm({ session, onPublished }: { session: Session; onPublished: 
       <div className="grid grid-cols-[1fr_100px] gap-2">
         <label className="block text-xs text-zinc-400">
           Price
-          <input className={input} type="number" min="1" step="any" value={form.price} onChange={set("price")} required />
+          <input className={input} type="number" min="0.001" step="any" value={form.price} onChange={set("price")} required />
         </label>
         <label className="block text-xs text-zinc-400">
           Currency
           <select className={input} value={form.currency} onChange={set("currency")}>
             <option>EUR</option>
+            <option>SOL</option>
             <option>USDC</option>
-            <option>MON</option>
           </select>
         </label>
       </div>
+      {(form.currency === "SOL" || form.currency === "USDC") && (
+        <label className="block text-xs text-zinc-400">
+          Seller Solana wallet
+          <input className={input} value={form.sellerWallet} onChange={set("sellerWallet")} placeholder="Phantom address on devnet" required />
+        </label>
+      )}
       <label className="block text-xs text-zinc-400">
         Seal sticker ID
         <input className={input} value={form.sealId} onChange={set("sealId")} placeholder="e.g. TZ-004211" />
