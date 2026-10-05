@@ -13,6 +13,7 @@ use solana_program::{
     entrypoint::ProgramResult,
     program::{invoke, invoke_signed},
     program_error::ProgramError,
+    program_pack::Pack,
     pubkey::Pubkey,
     rent::Rent,
     system_instruction,
@@ -233,7 +234,7 @@ fn require_timeout(v: u64) -> ProgramResult {
     }
 }
 
-pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
+pub fn process_instruction<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], data: &[u8]) -> ProgramResult {
     let mut input = In::new(data);
     match input.u8()? {
         0 => init(program_id, accounts, &mut input),
@@ -286,7 +287,7 @@ fn load_listing<'a>(program_id: &Pubkey, account: &'a AccountInfo<'a>, id: u64) 
     Ok(bump)
 }
 
-fn init(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn init<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let fee_bps = input.u16()?;
     let ship = input.u64()?;
     let confirm_s = input.u64()?;
@@ -335,7 +336,7 @@ fn init(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> Progra
     Ok(())
 }
 
-fn create(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn create<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let price = input.u64()?;
     let holdback_bps = input.u16()?;
@@ -387,7 +388,7 @@ fn create(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> Prog
     Ok(())
 }
 
-fn buy(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn buy<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let buyer = next_account_info(ai)?;
@@ -456,7 +457,7 @@ fn buy(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> Program
     Ok(())
 }
 
-fn mark_shipped(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn mark_shipped<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let seller = next_account_info(ai)?;
@@ -527,7 +528,7 @@ fn settle<'a>(program_id: &Pubkey, listing: &AccountInfo<'a>, config: &AccountIn
     Ok(())
 }
 
-fn confirm(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn confirm<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let hash = input.hash()?;
     let ai = &mut accounts.iter();
@@ -551,7 +552,7 @@ fn confirm(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> Pro
     settle(program_id, listing, config, &rest)
 }
 
-fn open_dispute(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn open_dispute<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let buyer = next_account_info(ai)?;
@@ -602,7 +603,7 @@ fn pay_all<'a>(listing: &AccountInfo<'a>, config: &AccountInfo<'a>, dest_owner: 
     Ok(())
 }
 
-fn resolve_dispute(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn resolve_dispute<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let refund_buyer = input.u8()? == 1;
     let ai = &mut accounts.iter();
@@ -627,7 +628,7 @@ fn resolve_dispute(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In
     }
 }
 
-fn cancel_dispute(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn cancel_dispute<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let buyer = next_account_info(ai)?;
@@ -647,7 +648,7 @@ fn cancel_dispute(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In)
     Ok(())
 }
 
-fn expire_dispute(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn expire_dispute<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let config = next_account_info(ai)?;
@@ -672,7 +673,7 @@ fn expire_dispute(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In)
     Ok(())
 }
 
-fn open_claim(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn open_claim<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let buyer = next_account_info(ai)?;
@@ -689,7 +690,7 @@ fn open_claim(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> 
     Ok(())
 }
 
-fn resolve_claim(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn resolve_claim<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let approve = input.u8()? == 1;
     let ai = &mut accounts.iter();
@@ -717,7 +718,7 @@ fn resolve_claim(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) 
     Ok(())
 }
 
-fn expire_claim(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn expire_claim<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let config = next_account_info(ai)?;
@@ -741,7 +742,7 @@ fn expire_claim(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -
     Ok(())
 }
 
-fn release_holdback(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn release_holdback<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let config = next_account_info(ai)?;
@@ -761,7 +762,7 @@ fn release_holdback(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut I
     Ok(())
 }
 
-fn refund_unshipped(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn refund_unshipped<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let config = next_account_info(ai)?;
@@ -785,7 +786,7 @@ fn refund_unshipped(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut I
     Ok(())
 }
 
-fn auto_release(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn auto_release<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let config = next_account_info(ai)?;
@@ -807,7 +808,7 @@ fn auto_release(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -
     settle(program_id, listing, config, &rest)
 }
 
-fn cancel(program_id: &Pubkey, accounts: &[AccountInfo], input: &mut In) -> ProgramResult {
+fn cancel<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>], input: &mut In) -> ProgramResult {
     let id = input.u64()?;
     let ai = &mut accounts.iter();
     let seller = next_account_info(ai)?;
