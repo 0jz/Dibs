@@ -1,0 +1,20 @@
+{
+  "note": "Per-model warn and stop temperatures for grade. The agent prefers the GPU Slowdown Temp from nvidia-smi when that reading exists. Fallback is 80C laptop / 88C desktop.",
+  "fallback": {
+    "laptop": { "warnC": 75, "stopC": 80 },
+    "desktop": { "warnC": 83, "stopC": 88 }
+  },
+  "gpus": [
+    { "key": "GT 1030", "warnC": 70, "stopC": 82 },
+    { "key": "RTX 3060", "warnC": 80, "stopC": 90 },
+    { "key": "RTX 5060 LAPTOP GPU", "warnC": 78, "stopC": 87 },
+    { "key": "RTX 4060", "warnC": 80, "stopC": 90 },
+    { "key": "RTX 4070", "warnC": 80, "stopC": 90 },
+    { "key": "RTX 3080", "warnC": 82, "stopC": 92 }
+  ],
+  "cpus": [
+    { "key": "CORE I5 7500", "warnC": 85, "stopC": 95 },
+    { "key": "CORE I7 14650HX", "warnC": 90, "stopC": 100 },
+    { "key": "RYZEN 9 5950X", "warnC": 85, "stopC": 95 }
+  ]
+}

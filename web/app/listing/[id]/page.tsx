@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
 import { readDb } from "@/lib/db";
+import { listingPartRows } from "@/lib/partBaseline";
+import { publicOrigin } from "@/lib/origin";
 import { GRADE_INFO, date, money, shortHash } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ResultStats, SpecList, TelemetryPanel } from "@/components/ReportView";
 import { CopyCommand } from "@/components/CopyCommand";
 import { EscrowBox } from "@/components/escrow/EscrowBox";
+import { CheckPlan } from "@/components/CheckPlan";
+import { ChainStatus } from "@/components/ChainStatus";
+import { solanaCheck } from "@/lib/escrow/lookup";
+import { STRESS_TIERS, isStressTier } from "@/lib/tests";
 
 export default async function ListingPage({ params }: PageProps<"/listing/[id]">) {
   const { id } = await params;
@@ -15,10 +20,11 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
   if (!listing) notFound();
 
   const verifications = db.verifications.filter((v) => v.listingId === id).reverse();
-  const host = (await headers()).get("host") ?? "localhost:3000";
-  const server = `http://${host}`;
+  const chain = await solanaCheck(listing);
+  const server = await publicOrigin();
   const grade = GRADE_INFO[listing.grade];
   const part = listing.kind === "part";
+  const stressTier = isStressTier(listing.stressTier) ? listing.stressTier : listing.results.checks?.stressTier;
 
   return (
     <>
@@ -32,6 +38,11 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-xs text-emerald-300">✓ Tested at {listing.store}</span>
               <span className={`rounded-full border px-2.5 py-0.5 text-xs ${grade.tone}`}>Grade {listing.grade} · {grade.label}</span>
+              {isStressTier(stressTier) && (
+                <span className={`rounded-full border px-2.5 py-0.5 text-xs ${stressTier === "light" ? "border-amber-300/40 bg-amber-300/10 text-amber-200" : "border-white/15 text-zinc-300"}`}>
+                  {STRESS_TIERS[stressTier].label}{stressTier === "light" ? " · not a certification" : ""}
+                </span>
+              )}
               {listing.status === "sold" && <span className="rounded-full border border-red-400/30 bg-red-400/10 px-2.5 py-0.5 text-xs text-red-300">Sold</span>}
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{listing.title}</h1>
@@ -44,12 +55,19 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
               </blockquote>
             )}
 
+            <CheckPlan kind={listing.kind} saleScope={listing.saleScope} stressTier={stressTier} />
+
             <h2 className="mt-10 text-lg font-semibold text-zinc-100">Test results</h2>
             <div className="mt-4">
-              <ResultStats identity={listing.identity} results={listing.results} gpuScore={listing.gpuScore} memoryScore={listing.memoryScore} kind={listing.kind} />
+              <ResultStats identity={listing.identity} results={listing.results} gpuScore={listing.gpuScore} memoryScore={listing.memoryScore} kind={listing.kind} saleScope={listing.saleScope} partRows={listingPartRows(listing, db)} />
             </div>
 
             <h2 className="mt-10 text-lg font-semibold text-zinc-100">Stress test telemetry</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              {listing.samples.some((sample) => sample.phase === "mining")
+                ? "Amber is temperature, blue is load. After the stress band, the purple band is a simulated mining endurance pass: the card is held near its 30 W cap. No mining program was run."
+                : "Shop measurement from this run. Amber is GPU temperature, blue is load. The shaded bands are the CPU phase and the GPU phase."}
+            </p>
             <div className="mt-4">
               <TelemetryPanel samples={listing.samples} />
             </div>
@@ -57,7 +75,7 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
             <h2 className="mt-10 text-lg font-semibold text-zinc-100">Detected hardware</h2>
             <p className="mt-1 text-sm text-zinc-500">Read directly from the device by the Dibs agent — not typed in by the seller.</p>
             <div className="mt-3 rounded-xl border border-white/8 bg-white/[0.02] px-4">
-              <SpecList identity={listing.identity} kind={listing.kind} />
+              <SpecList identity={listing.identity} kind={listing.kind} saleScope={listing.saleScope} />
             </div>
           </div>
 
@@ -74,6 +92,8 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
                 verifyMatch={verifications[0] ? verifications[0].match : null}
               />
             </div>
+
+            <ChainStatus check={chain} reportSig={listing.chainReport?.signature} />
 
             <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 text-sm">
               <h3 className="font-semibold text-zinc-100">Certificate</h3>
@@ -97,6 +117,7 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
                 <CopyCommand command={`python dibs_agent.py verify --server ${server} --listing ${listing.id}`} />
               </div>
               <a href="/dibs_agent.py" download className="mt-2 inline-block text-xs text-amber-300 hover:underline">Download dibs_agent.py</a>
+              <a href={`/api/listings/${listing.id}`} className="mt-2 block text-xs text-amber-300 hover:underline">API: hardware report and Solana account</a>
               {verifications.length > 0 && (
                 <ul className="mt-4 space-y-2 border-t border-white/6 pt-4">
                   {verifications.map((v) => (

@@ -84,7 +84,7 @@ npm run dev:lan        # serves on port 3000, reachable from other PCs on the LA
 
 **Safe load, not a miner.** Core stress defaults to 45s and is hard-capped at 90s. A second pass stresses VRAM bandwidth for 20s (cap 30s). Both stop if the GPU hits 90°C. No mining program is run: a miner can overheat memory without GeForce `nvidia-smi` showing it. Phones use the same page on the shop Wi-Fi: `/stress?profile=phone&mode=core` (max 20s) and `mode=memory` (max 25s, battery % when the browser reports it).
 
-**Real part scores:** `GET /api/reference?q=RTX%203080` reads medians from the Blender Open Data dump (`opendata-latest.zip`, CC0). Rebuild with `python scripts/build_blender_reference.py`. `GET /api/reference?kind=phone` describes the on-device phone test and points at GreenHub for battery field data. Those numbers are measured; missing models stay missing.
+**Real part scores:** `GET /api/reference?q=RTX%203080` reads samples-per-minute percentiles (p5 to p95, higher is faster) from the Blender Open Data dump (`opendata-latest.zip`, CC0). Render time is not used: since Blender 3.0 the scenes render for a fixed 30 s, so it is nearly the same on every card. Rebuild with `python scripts/build_blender_reference.py`. `GET /api/reference?kind=phone` describes the on-device phone test and points at GreenHub for battery field data. Those numbers are measured; missing models stay missing.
 
 **Fingerprints** (both sha256, 32 bytes, so they fit a `bytes32` on-chain as is):
 - **Part** (graphics card only): `sha256({"gpu": "<uuid>|<vbios>"})`, one per GPU. It still matches after the card is moved to the buyer's PC; the verify step passes if *any* GPU in that PC matches.

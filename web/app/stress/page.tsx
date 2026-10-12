@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { STRESS_TIERS, TEST_LIMITS, isStressTier, shaderFor, type StressTierId } from "@/lib/tests";
 
 // Heavy fragment shader: iterated domain-warped noise. Rendered at a fixed resolution
 // so the score doesn't depend on window size.
@@ -65,6 +66,8 @@ function batteryLevel() {
 export default function StressPage() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const title = useRef<HTMLDivElement>(null);
+  const stopRequested = useRef(false);
+  const halt = useRef<(() => void) | null>(null);
   const [state, setState] = useState<State>("running");
   const [error, setError] = useState("");
   const [renderer, setRenderer] = useState("");
@@ -74,17 +77,29 @@ export default function StressPage() {
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
     const code = qs.get("code") ?? "";
-    const profile = qs.get("profile") === "phone" ? "phone" : "pc";
+    const profile = qs.get("profile") === "phone" ? "phone" : qs.get("profile") === "laptop" ? "laptop" : "pc";
     const mode = qs.get("mode") === "memory" ? "memory" : "core";
-    const requested = Number(qs.get("seconds")) || (mode === "memory" ? 20 : 45);
-    const cap = profile === "phone" ? (mode === "memory" ? 25 : 20) : mode === "memory" ? 30 : 90;
-    const seconds = Math.min(cap, Math.max(5, requested));
-    const width = profile === "phone" ? 1280 : 1920;
-    const height = profile === "phone" ? 720 : 1080;
+    const tier: StressTierId = isStressTier(qs.get("tier")) ? (qs.get("tier") as StressTierId) : profile === "laptop" ? "light" : "standard";
+    const requested = Number(qs.get("seconds")) || (mode === "memory" ? STRESS_TIERS[tier].memoryS : STRESS_TIERS[tier].coreS);
+    const tierCap = mode === "memory" ? STRESS_TIERS[tier].memoryS : STRESS_TIERS[tier].coreS;
+    const cap = profile === "phone"
+      ? (mode === "memory" ? TEST_LIMITS.phoneEnduranceMaxS : TEST_LIMITS.phoneStressMaxS)
+      : Math.min(tierCap || 5, mode === "memory" ? TEST_LIMITS.memoryMaxS : TEST_LIMITS.gpuStressMaxS);
+    const seconds = Math.min(cap, Math.max(5, requested || cap));
+    const shader = shaderFor(tier, profile === "phone" ? "phone" : profile === "laptop" ? "laptop" : "desktop");
+    const width = shader.width;
+    const height = shader.height;
     if (title.current) {
-      title.current.textContent = profile === "phone"
+      const name = profile === "phone"
         ? (mode === "memory" ? "Dibs phone endurance" : "Dibs phone stress")
-        : mode === "memory" ? "Dibs VRAM bandwidth" : "Dibs GPU stress";
+        : mode === "memory"
+          ? "Dibs VRAM bandwidth"
+          : tier === "light"
+            ? "Dibs light check"
+            : tier === "bench"
+              ? "Dibs bench stress"
+              : "Dibs GPU stress";
+      title.current.textContent = name;
     }
 
     const c = canvas.current!;
@@ -141,9 +156,9 @@ export default function StressPage() {
     gl.uniform2f(gl.getUniformLocation(prog, "uRes"), c.width, c.height);
     gl.viewport(0, 0, c.width, c.height);
 
-    // Draw several full-screen passes per animation frame so a fast GPU isn't capped
-    // by the display refresh rate. Passes per second is the score.
-    let passes = 1;
+    // Desktop Standard and Bench ramp until the GPU is full. Light, and every laptop
+    // run, stay at a fixed pass count so the shader cannot climb to 64.
+    let passes = shader.ramp ? 1 : shader.passCap;
     let frames = 0;
     let raf = 0;
     let cancelled = false;
@@ -152,7 +167,6 @@ export default function StressPage() {
     let windowStart = start;
     let windowFrames = 0;
     let stopForHeat = false;
-    let lastPoll = 0;
     let batteryStart: number | null = null;
     batteryLevel().then((pct) => {
       batteryStart = pct;
@@ -170,6 +184,7 @@ export default function StressPage() {
         renderer: rendererName,
         mode,
         profile,
+        tier,
         aborted,
         batteryStartPct: batteryStart,
         batteryEndPct: batteryEnd,
@@ -185,16 +200,30 @@ export default function StressPage() {
       }
     };
 
+    let toldServer = false;
+    const tellServer = () => {
+      if (!code || toldServer) return;
+      toldServer = true;
+      fetch(`/api/agent/${code}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "abort" }),
+      }).catch(() => {});
+    };
+
     const tick = (now: number) => {
       if (cancelled) return;
-      if (stopForHeat) {
+      if (stopRequested.current || stopForHeat) {
+        if (stopRequested.current) tellServer();
         finish(true);
         return;
       }
       const dt = now - last;
       last = now;
-      if (dt < 20 && passes < 64) passes++;
-      else if (dt > 40 && passes > 1) passes--;
+      if (shader.ramp) {
+        if (dt < 20 && passes < shader.passCap) passes++;
+        else if (dt > 40 && passes > 1) passes--;
+      }
 
       for (let i = 0; i < passes; i++) {
         gl.uniform1f(uTime, (now - start) / 1000 + i * 0.01);
@@ -207,15 +236,6 @@ export default function StressPage() {
         setFps(Math.round((windowFrames * 1000) / (now - windowStart)));
         windowStart = now;
         windowFrames = 0;
-        if (code && now - lastPoll > 2000) {
-          lastPoll = now;
-          fetch(`/api/agent/${code}`, { cache: "no-store" })
-            .then((r) => r.json())
-            .then((body) => {
-              if (body?.abort) stopForHeat = true;
-            })
-            .catch(() => {});
-        }
       }
       const elapsed = (now - start) / 1000;
       setLeft(Math.max(0, Math.ceil(seconds - elapsed)));
@@ -226,10 +246,37 @@ export default function StressPage() {
       }
       raf = requestAnimationFrame(tick);
     };
+    halt.current = () => {
+      stopRequested.current = true;
+      cancelAnimationFrame(raf);
+      tellServer();
+      finish(true);
+    };
+    const poll = window.setInterval(() => {
+      if (cancelled || finished) return;
+      if (stopRequested.current) {
+        cancelAnimationFrame(raf);
+        tellServer();
+        finish(true);
+        return;
+      }
+      if (!code) return;
+      fetch(`/api/agent/${code}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((body) => {
+          if (!body?.abort || finished) return;
+          stopForHeat = true;
+          cancelAnimationFrame(raf);
+          finish(true);
+        })
+        .catch(() => {});
+    }, 500);
     raf = requestAnimationFrame(tick);
     return () => {
       cancelled = true;
+      halt.current = null;
       cancelAnimationFrame(raf);
+      window.clearInterval(poll);
     };
   }, []);
 
@@ -247,6 +294,15 @@ export default function StressPage() {
               {state === "done" ? "Done — results sent. You can close this tab." : `${left}s left · keep this window in front`}
             </div>
             <div className="mt-2 max-w-md truncate text-xs text-zinc-500" title={renderer}>{renderer}</div>
+            {state === "running" && (
+              <button
+                type="button"
+                onClick={() => halt.current?.()}
+                className="mt-4 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200"
+              >
+                Stop
+              </button>
+            )}
           </>
         )}
       </div>

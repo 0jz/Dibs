@@ -18,28 +18,42 @@ export function configPda(programId: PublicKey) {
   return PublicKey.findProgramAddressSync([Buffer.from("config")], programId)[0];
 }
 
+function viewOf(data: Buffer) {
+  return new DataView(data.buffer, data.byteOffset, data.byteLength);
+}
+
+function leBytes(size: number, write: (view: DataView) => void) {
+  const buf = Buffer.alloc(size);
+  write(viewOf(buf));
+  return buf;
+}
+
 export function listingPda(programId: PublicKey, id: bigint) {
-  const buf = Buffer.alloc(8);
-  buf.writeBigUInt64LE(id);
-  return PublicKey.findProgramAddressSync([Buffer.from("listing"), buf], programId)[0];
+  return PublicKey.findProgramAddressSync([Buffer.from("listing"), idBuf(id)], programId)[0];
 }
 
 function idBuf(id: bigint) {
-  const buf = Buffer.alloc(8);
-  buf.writeBigUInt64LE(id);
-  return buf;
+  return leBytes(8, (view) => view.setBigUint64(0, id, true));
 }
 
 function u16(n: number) {
-  const buf = Buffer.alloc(2);
-  buf.writeUInt16LE(n);
-  return buf;
+  return leBytes(2, (view) => view.setUint16(0, n, true));
 }
 
 function u64(n: bigint) {
-  const buf = Buffer.alloc(8);
-  buf.writeBigUInt64LE(n);
-  return buf;
+  return leBytes(8, (view) => view.setBigUint64(0, n, true));
+}
+
+function readU16(data: Buffer, at: number) {
+  return viewOf(data).getUint16(at, true);
+}
+
+function readU64(data: Buffer, at: number) {
+  return viewOf(data).getBigUint64(at, true);
+}
+
+function readI64(data: Buffer, at: number) {
+  return viewOf(data).getBigInt64(at, true);
 }
 
 export function partHashBytes(hex: string) {
@@ -186,33 +200,33 @@ export function decodeListing(data: Buffer) {
     rail: data[L.rail] === 1 ? "usdc" as const : "sol" as const,
     from: data[L.from],
     claimUsed: data[L.claimUsed] === 1,
-    holdbackBps: data.readUInt16LE(L.holdbackBps),
+    holdbackBps: readU16(data, L.holdbackBps),
     seller: keyAt(data, L.seller),
     buyer: keyAt(data, L.buyer),
     hash: data.subarray(L.hash, L.hash + 32),
-    price: data.readBigUInt64LE(L.price),
-    deposited: data.readBigUInt64LE(L.deposited),
-    fee: data.readBigUInt64LE(L.fee),
-    holdback: data.readBigUInt64LE(L.holdback),
-    paidAt: Number(data.readBigInt64LE(L.paid)),
-    shippedAt: Number(data.readBigInt64LE(L.shipped)),
-    protectionEnd: Number(data.readBigInt64LE(L.protect)),
-    since: Number(data.readBigInt64LE(L.since)),
+    price: readU64(data, L.price),
+    deposited: readU64(data, L.deposited),
+    fee: readU64(data, L.fee),
+    holdback: readU64(data, L.holdback),
+    paidAt: Number(readI64(data, L.paid)),
+    shippedAt: Number(readI64(data, L.shipped)),
+    protectionEnd: Number(readI64(data, L.protect)),
+    since: Number(readI64(data, L.since)),
   };
 }
 
 export function decodeConfig(data: Buffer) {
   return {
     ready: data[C.init] === 1,
-    feeBps: data.readUInt16LE(C.fee),
+    feeBps: readU16(data, C.fee),
     admin: keyAt(data, C.admin),
     mint: keyAt(data, C.mint),
     treasury: keyAt(data, C.treasury),
-    shipSecs: Number(data.readBigUInt64LE(C.ship)),
-    confirmSecs: Number(data.readBigUInt64LE(C.confirm)),
-    protectionSecs: Number(data.readBigUInt64LE(C.protect)),
-    disputeSecs: Number(data.readBigUInt64LE(C.dispute)),
-    claimSecs: Number(data.readBigUInt64LE(C.claim)),
+    shipSecs: Number(readU64(data, C.ship)),
+    confirmSecs: Number(readU64(data, C.confirm)),
+    protectionSecs: Number(readU64(data, C.protect)),
+    disputeSecs: Number(readU64(data, C.dispute)),
+    claimSecs: Number(readU64(data, C.claim)),
   };
 }
 

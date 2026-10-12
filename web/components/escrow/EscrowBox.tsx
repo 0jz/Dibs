@@ -1,6 +1,11 @@
 "use client";
 
+import { Buffer } from "buffer";
 import { useCallback, useEffect, useState } from "react";
+
+if (typeof globalThis.Buffer === "undefined") {
+  globalThis.Buffer = Buffer;
+}
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import {
   configPda,

@@ -1,4 +1,5 @@
-import { newId, updateDb } from "@/lib/db";
+import { newId, readDb, updateDb } from "@/lib/db";
+import { solanaCheck } from "@/lib/escrow/lookup";
 import type { Verification } from "@/lib/types";
 
 // Called by the buyer's agent (`dibs_agent.py verify`) when the device arrives.
@@ -13,8 +14,25 @@ export async function POST(request: Request) {
     const listing = db.listings.find((l) => l.id === body.listingId);
     if (!listing) return null;
     const partHashes: string[] = Array.isArray(body.partHashes) ? body.partHashes.map(String) : [];
+    const fp = body.fingerprints && typeof body.fingerprints === "object" ? body.fingerprints : null;
+    const scope = listing.saleScope ?? (listing.kind === "part" ? "gpu" : "device");
+    const listed = listing.deviceHash;
+    const gpuHashes: string[] = Array.isArray(fp?.gpus) ? fp.gpus.map(String) : partHashes;
+    const diskHashes: string[] = Array.isArray(fp?.disks) ? fp.disks.filter((item: unknown) => typeof item === "string") : [];
     const match =
-      listing.kind === "part" ? partHashes.includes(listing.deviceHash) : String(body.deviceHash) === listing.deviceHash;
+      scope === "device"
+        ? String(body.deviceHash) === listed
+        : scope === "gpu"
+          ? gpuHashes.includes(listed)
+          : scope === "cpu"
+            ? fp?.cpu === listed
+            : scope === "ram"
+              ? fp?.ram === listed
+              : scope === "storage"
+                ? diskHashes.includes(listed)
+                : scope === "battery"
+                  ? fp?.battery === listed
+                  : false;
     const v: Verification = {
       id: newId(),
       listingId: listing.id,
@@ -28,5 +46,7 @@ export async function POST(request: Request) {
   });
 
   if (!result) return Response.json({ error: "Listing not found" }, { status: 404 });
-  return Response.json(result);
+  const listing = readDb().listings.find((item) => item.id === result.listingId);
+  const solana = listing ? await solanaCheck(listing) : null;
+  return Response.json({ ...result, solana });
 }

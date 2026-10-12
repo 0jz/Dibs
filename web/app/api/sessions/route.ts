@@ -26,6 +26,9 @@ export async function POST() {
     gpuScore: null,
     memoryScore: null,
     abort: false,
+    stressTier: null,
+    saleScope: "device",
+    hashrate: false,
     listingId: null,
   };
   updateDb((db) => db.sessions.push(session));

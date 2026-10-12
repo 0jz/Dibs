@@ -1,7 +1,9 @@
 import { requireStaff } from "@/lib/auth";
 import { newId, sha256, STORE_NAME, updateDb } from "@/lib/db";
 import { priceToBase } from "@/lib/escrow/math";
-import type { Grade, Listing, ListingKind } from "@/lib/types";
+import type { Grade, Listing, ListingKind, SaleScope } from "@/lib/types";
+
+const SCOPES: SaleScope[] = ["device", "gpu", "cpu", "ram", "storage", "battery"];
 import { PublicKey } from "@solana/web3.js";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -43,22 +45,36 @@ export async function POST(request: Request, { params }: Ctx) {
       return { error: "The test has not finished yet", status: 400 };
     }
 
-    const kind: ListingKind = body.kind === "part" ? "part" : "device";
-    let fingerprint = session.deviceHash;
+    const scope: SaleScope =
+      session.saleScope && SCOPES.includes(session.saleScope)
+        ? session.saleScope
+        : body.kind === "part"
+          ? "gpu"
+          : "device";
+    const partIndex = Number(body.partIndex ?? body.gpuIndex ?? 0);
+    const fp = session.fingerprints;
+    let fingerprint: string | null = session.deviceHash;
+    if (scope === "gpu") fingerprint = fp?.gpus?.[partIndex] ?? session.partHashes?.[partIndex] ?? null;
+    if (scope === "cpu") fingerprint = fp?.cpu ?? null;
+    if (scope === "ram") fingerprint = fp?.ram ?? null;
+    if (scope === "storage") fingerprint = fp?.disks?.[partIndex] ?? null;
+    if (scope === "battery") fingerprint = fp?.battery ?? null;
+    if (!fingerprint) {
+      return { error: "This part has no stable id in the test. Re-run it with the latest agent.", status: 400 };
+    }
+
+    const kind: ListingKind = scope === "device" ? "device" : "part";
     let identity = session.identity;
-    if (kind === "part") {
-      const gpuIndex = Number(body.gpuIndex ?? 0);
-      const partHash = session.partHashes?.[gpuIndex];
-      if (!partHash || !identity.gpus[gpuIndex]) {
-        return { error: "No GPU fingerprint for this card. Re-run the test with the latest agent.", status: 400 };
-      }
-      fingerprint = partHash;
-      // Keep only the card being sold; the rest of the identity describes the shop's test bench.
-      identity = { ...identity, gpus: [identity.gpus[gpuIndex]] };
+    if (scope === "gpu" && identity.gpus[partIndex]) {
+      identity = { ...identity, gpus: [identity.gpus[partIndex]] };
+    }
+    if (scope === "storage" && identity.disks[partIndex]) {
+      identity = { ...identity, disks: [identity.disks[partIndex]] };
     }
 
     const report = {
       kind,
+      saleScope: scope,
       store: STORE_NAME,
       testedAt: session.createdAt,
       deviceHash: fingerprint,
@@ -69,6 +85,7 @@ export async function POST(request: Request, { params }: Ctx) {
       grade: GRADES.includes(body.grade) ? body.grade : "B",
       sealId: String(body.sealId ?? "").trim(),
       notes: String(body.notes ?? "").trim(),
+      stressTier: session.stressTier ?? session.results.checks?.stressTier ?? null,
       sellerWallet,
       priceBase: base ?? null,
       currency,
@@ -88,6 +105,7 @@ export async function POST(request: Request, { params }: Ctx) {
       notes: report.notes,
       sealId: report.sealId,
       kind,
+      saleScope: scope,
       deviceHash: fingerprint,
       reportHash: sha256(report),
       identity,
@@ -95,6 +113,7 @@ export async function POST(request: Request, { params }: Ctx) {
       gpuScore: session.gpuScore,
       memoryScore: session.memoryScore ?? null,
       samples: session.samples,
+      stressTier: session.stressTier ?? session.results.checks?.stressTier ?? null,
       testedAt: session.createdAt,
       publishedAt: new Date().toISOString(),
       status: "for_sale",

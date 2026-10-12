@@ -1,0 +1,12 @@
+{
+  "note": "Same-test shop baselines used until three earlier Dibs runs of that part exist. GPU fps is only valid for the listed stress tier and laptop or desktop. CPU multi score is shared across tiers.",
+  "gpus": [
+    { "key": "GT 1030", "device": "desktop", "tier": "standard", "fps": 34 },
+    { "key": "RTX 3060", "device": "desktop", "tier": "standard", "fps": 101 }
+  ],
+  "cpus": [
+    { "key": "CORE I5 7500", "multi": 3100 },
+    { "key": "CORE I7 14650HX", "multi": 60693 },
+    { "key": "RYZEN 9 5950X", "multi": 74690 }
+  ]
+}

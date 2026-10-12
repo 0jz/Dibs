@@ -63,15 +63,24 @@ async function airdrop(to) {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const elf = readFileSync(elfPath);
 const bufferRent = await conn.getMinimumBalanceForRentExemption(37 + elf.length);
 const dataRent = await conn.getMinimumBalanceForRentExemption(45 + elf.length);
 const programRent = await conn.getMinimumBalanceForRentExemption(36);
-const need = bufferRent + dataRent + programRent + 80_000_000;
+const bufferFile = path.join(keys, "buffer-address.txt");
+const savedBuffer = existsSync(bufferFile) ? new PublicKey(readFileSync(bufferFile, "utf8").trim()) : null;
+const savedInfo = savedBuffer ? await conn.getAccountInfo(savedBuffer) : null;
+const reuse = Boolean(savedInfo && savedInfo.owner.equals(LOADER) && savedInfo.data.length === 37 + elf.length);
+const existing = await conn.getAccountInfo(program.publicKey);
+const need = existing?.executable ? 20_000_000 : (reuse ? 0 : bufferRent) + dataRent + programRent + 80_000_000;
 
 console.log("admin", admin.publicKey.toBase58());
 console.log("program", program.publicKey.toBase58());
-for (let i = 0; i < 4; i++) {
+for (let i = 0; i < 2; i++) {
   const bal = await conn.getBalance(admin.publicKey);
   if (bal >= need) break;
   await airdrop(admin.publicKey);
@@ -83,37 +92,62 @@ if (bal < need) {
 }
 
 async function send(tx, signers) {
-  const sig = await conn.sendTransaction(tx, signers, { skipPreflight: false });
-  await conn.confirmTransaction(sig, "confirmed");
-  return sig;
+  let last;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    try {
+      const sig = await conn.sendTransaction(tx, signers, { skipPreflight: true, maxRetries: 2 });
+      const result = await conn.confirmTransaction(sig, "confirmed");
+      if (result.value.err) throw new Error(JSON.stringify(result.value.err));
+      await sleep(500);
+      return sig;
+    } catch (error) {
+      last = error;
+      const msg = error instanceof Error ? error.message : String(error);
+      console.log("retry", attempt + 1, msg.slice(0, 140));
+      await sleep(2000 * (attempt + 1));
+    }
+  }
+  throw last;
 }
 
-const existing = await conn.getAccountInfo(program.publicKey);
 if (existing?.executable) {
   console.log("program already deployed");
 } else {
-  const buffer = Keypair.generate();
-  console.log("deploying", elf.length, "bytes via the upgradeable loader");
-  const create = new Transaction().add(
-    SystemProgram.createAccount({
-      fromPubkey: admin.publicKey,
-      newAccountPubkey: buffer.publicKey,
-      lamports: bufferRent,
-      space: 37 + elf.length,
-      programId: LOADER,
-    }),
-    new TransactionInstruction({
-      programId: LOADER,
-      keys: [
-        { pubkey: buffer.publicKey, isSigner: false, isWritable: true },
-        { pubkey: admin.publicKey, isSigner: false, isWritable: false },
-      ],
-      data: Buffer.from([0, 0, 0, 0]),
-    }),
-  );
-  await send(create, [admin, buffer]);
+  let bufferKey = savedBuffer;
+  if (!reuse) {
+    const buffer = Keypair.generate();
+    bufferKey = buffer.publicKey;
+    writeFileSync(bufferFile, bufferKey.toBase58());
+    console.log("deploying", elf.length, "bytes via the upgradeable loader");
+    const create = new Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: admin.publicKey,
+        newAccountPubkey: buffer.publicKey,
+        lamports: bufferRent,
+        space: 37 + elf.length,
+        programId: LOADER,
+      }),
+      new TransactionInstruction({
+        programId: LOADER,
+        keys: [
+          { pubkey: buffer.publicKey, isSigner: false, isWritable: true },
+          { pubkey: admin.publicKey, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.from([0, 0, 0, 0]),
+      }),
+    );
+    await send(create, [admin, buffer]);
+  } else {
+    console.log("resuming buffer", bufferKey.toBase58());
+  }
 
-  for (let offset = 0; offset < elf.length; offset += CHUNK) {
+  const onChain = reuse ? savedInfo.data.subarray(37) : Buffer.alloc(0);
+  let start = 0;
+  while (start < onChain.length && start < elf.length && onChain[start] === elf[start]) start += 1;
+  start -= start % CHUNK;
+  console.log("writing from", start);
+
+  for (let offset = start; offset < elf.length; offset += CHUNK) {
     const bytes = elf.subarray(offset, offset + CHUNK);
     const data = Buffer.alloc(16 + bytes.length);
     data.writeUInt32LE(1, 0);
@@ -123,13 +157,13 @@ if (existing?.executable) {
     const tx = new Transaction().add(new TransactionInstruction({
       programId: LOADER,
       keys: [
-        { pubkey: buffer.publicKey, isSigner: false, isWritable: true },
+        { pubkey: bufferKey, isSigner: false, isWritable: true },
         { pubkey: admin.publicKey, isSigner: true, isWritable: false },
       ],
       data,
     }));
     await send(tx, [admin]);
-    if (offset % (CHUNK * 20) === 0) console.log("wrote", offset, "/", elf.length);
+    if (offset % (CHUNK * 10) === 0) console.log("wrote", offset, "/", elf.length);
   }
 
   const [programData] = PublicKey.findProgramAddressSync([program.publicKey.toBuffer()], LOADER);
@@ -150,7 +184,7 @@ if (existing?.executable) {
         { pubkey: admin.publicKey, isSigner: true, isWritable: true },
         { pubkey: programData, isSigner: false, isWritable: true },
         { pubkey: program.publicKey, isSigner: false, isWritable: true },
-        { pubkey: buffer.publicKey, isSigner: false, isWritable: true },
+        { pubkey: bufferKey, isSigner: false, isWritable: true },
         { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
         { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },

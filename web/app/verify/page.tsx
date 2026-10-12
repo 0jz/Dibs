@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { readDb } from "@/lib/db";
+import { publicOrigin } from "@/lib/origin";
 import { date } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CopyCommand } from "@/components/CopyCommand";
 
 export default async function VerifyPage() {
-  const host = (await headers()).get("host") ?? "localhost:3000";
+  const server = await publicOrigin();
   const db = readDb();
   const recent = db.verifications.slice(-8).reverse();
   const title = (id: string) => db.listings.find((l) => l.id === id)?.title ?? "Unknown listing";
@@ -37,7 +37,7 @@ export default async function VerifyPage() {
               the listing&apos;s URL).
             </p>
             <div className="mt-3">
-              <CopyCommand command={`python dibs_agent.py verify --server http://${host} --listing <listing-id>`} />
+              <CopyCommand command={`python dibs_agent.py verify --server ${server} --listing <listing-id>`} />
             </div>
           </li>
           <li className="rounded-xl border border-white/8 bg-white/[0.02] p-5">

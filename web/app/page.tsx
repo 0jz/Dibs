@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { readDb } from "@/lib/db";
+import { listingPartRows } from "@/lib/partBaseline";
+import { listingMiddle } from "@/lib/partScore";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ListingCard } from "@/components/ListingCard";
 
@@ -24,7 +26,8 @@ const STEPS = [
 
 export default async function Home() {
   await connection();
-  const listings = readDb().listings.slice().reverse();
+  const db = readDb();
+  const listings = db.listings.slice().reverse();
   const forSale = listings.filter((l) => l.status === "for_sale");
 
   return (
@@ -52,7 +55,7 @@ export default async function Home() {
             <div className="mt-12 flex flex-wrap gap-x-8 gap-y-2 text-sm text-zinc-500">
               <span><b className="text-zinc-200">{listings.length}</b> devices certified</span>
               <span><b className="text-zinc-200">{forSale.length}</b> for sale now</span>
-              <span>Escrow on <b className="text-zinc-200">Monad</b></span>
+              <span>Escrow on <b className="text-zinc-200">Solana devnet</b></span>
             </div>
           </div>
         </section>
@@ -69,7 +72,7 @@ export default async function Home() {
           ) : (
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {listings.map((l) => (
-                <ListingCard key={l.id} listing={l} />
+                <ListingCard key={l.id} listing={l} middle={listingMiddle(l, listingPartRows(l, db))} />
               ))}
             </div>
           )}
@@ -91,7 +94,7 @@ export default async function Home() {
         </section>
       </main>
       <footer className="border-t border-white/6 py-8 text-center text-xs text-zinc-600">
-        Dibs · hackathon prototype · test reports are fingerprinted and anchored on Monad
+        Dibs · hackathon prototype · fingerprints and escrow on Solana devnet
       </footer>
     </>
   );

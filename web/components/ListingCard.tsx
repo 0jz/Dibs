@@ -2,10 +2,11 @@ import Link from "next/link";
 import type { Listing } from "@/lib/types";
 import { GRADE_INFO, cleanName, money, tempTone } from "@/lib/format";
 
-export function ListingCard({ listing }: { listing: Listing }) {
+export function ListingCard({ listing, middle }: { listing: Listing; middle: { value: string; label: string } }) {
   const gpu = listing.identity.gpus[0];
   const grade = GRADE_INFO[listing.grade];
-  const part = listing.kind === "part";
+  const scope = listing.saleScope ?? (listing.kind === "part" ? "gpu" : "device");
+  const showGpuHealth = scope === "gpu" || scope === "device";
   return (
     <Link
       href={`/listing/${listing.id}`}
@@ -21,8 +22,16 @@ export function ListingCard({ listing }: { listing: Listing }) {
       </div>
       <h3 className="mt-4 text-lg font-semibold leading-snug text-zinc-100 group-hover:text-white">{listing.title}</h3>
       <p className="mt-1 text-sm text-zinc-400">
-        {part ? (
+        {scope === "gpu" && gpu ? (
           `Graphics card · ${Math.round(gpu.vramMb / 1024)} GB VRAM`
+        ) : scope === "cpu" ? (
+          cleanName(listing.identity.cpu.name)
+        ) : scope === "ram" ? (
+          `${listing.identity.ram.totalGb} GB memory`
+        ) : scope === "storage" ? (
+          listing.identity.disks[0]?.model ?? "Storage"
+        ) : scope === "battery" ? (
+          "Battery"
         ) : (
           <>
             {gpu ? gpu.name.replace(/^NVIDIA GeForce /, "") + " · " : ""}
@@ -32,29 +41,68 @@ export function ListingCard({ listing }: { listing: Listing }) {
       </p>
       <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
         <div className="rounded-lg bg-black/30 py-2">
-          <div className={`text-sm font-semibold ${tempTone(listing.results.gpu?.maxTemp)}`}>
-            {listing.results.gpu ? `${listing.results.gpu.maxTemp}°C` : "—"}
-          </div>
-          <div className="text-zinc-500">peak temp</div>
+          {showGpuHealth ? (
+            <>
+              <div className={`text-sm font-semibold ${tempTone(listing.results.gpu?.maxTemp)}`}>
+                {listing.results.gpu ? `${listing.results.gpu.maxTemp}°C` : "—"}
+              </div>
+              <div className="text-zinc-500">peak temp</div>
+            </>
+          ) : scope === "cpu" ? (
+            <>
+              <div className="text-sm font-semibold text-zinc-200">{listing.results.cpu.singleScore.toLocaleString("en-US")}</div>
+              <div className="text-zinc-500">single</div>
+            </>
+          ) : scope === "ram" ? (
+            <>
+              <div className="text-sm font-semibold text-zinc-200">{listing.identity.ram.modules[0]?.speedMts ?? "—"}</div>
+              <div className="text-zinc-500">MT/s</div>
+            </>
+          ) : scope === "storage" ? (
+            <>
+              <div className="text-sm font-semibold text-zinc-200">{listing.identity.disks[0]?.sizeGb ?? "—"}</div>
+              <div className="text-zinc-500">GB</div>
+            </>
+          ) : (
+            <>
+              <div className="text-sm font-semibold text-zinc-200">{listing.identity.battery?.cycles ?? "—"}</div>
+              <div className="text-zinc-500">cycles</div>
+            </>
+          )}
         </div>
         <div className="rounded-lg bg-black/30 py-2">
-          <div className="text-sm font-semibold text-zinc-200">{listing.gpuScore ? listing.gpuScore.fps : "—"}</div>
-          <div className="text-zinc-500">GPU fps</div>
+          <div className="text-sm font-semibold text-zinc-200">{middle.value}</div>
+          <div className="text-zinc-500">{middle.label}</div>
         </div>
         <div className="rounded-lg bg-black/30 py-2">
-          {part ? (
+          {showGpuHealth ? (
             <>
               <div className={`text-sm font-semibold ${listing.results.gpu?.throttleSamples ? "text-red-400" : "text-emerald-300"}`}>
                 {listing.results.gpu ? (listing.results.gpu.throttleSamples ? "Yes" : "None") : "—"}
               </div>
               <div className="text-zinc-500">throttling</div>
             </>
+          ) : scope === "cpu" ? (
+            <>
+              <div className="text-sm font-semibold text-zinc-200">{listing.identity.cpu.threads}</div>
+              <div className="text-zinc-500">threads</div>
+            </>
+          ) : scope === "ram" ? (
+            <>
+              <div className="text-sm font-semibold text-zinc-200">{listing.identity.ram.modules.length}</div>
+              <div className="text-zinc-500">modules</div>
+            </>
+          ) : scope === "storage" ? (
+            <>
+              <div className="text-sm font-semibold text-zinc-200">{listing.identity.disks[0]?.type || "—"}</div>
+              <div className="text-zinc-500">type</div>
+            </>
           ) : (
             <>
               <div className="text-sm font-semibold text-zinc-200">
-                {listing.identity.battery ? `${Math.round(listing.identity.battery.healthPct)}%` : (listing.results.cpu.multiScore / 1000).toFixed(1) + "k"}
+                {listing.identity.battery ? (listing.identity.battery.designMwh / 1000).toFixed(0) : "—"}
               </div>
-              <div className="text-zinc-500">{listing.identity.battery ? "battery" : "CPU score"}</div>
+              <div className="text-zinc-500">Wh</div>
             </>
           )}
         </div>

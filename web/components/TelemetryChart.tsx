@@ -7,6 +7,7 @@ const PAD = { l: 34, r: 12, t: 12, b: 22 };
 const PHASE_FILL: Record<string, string> = {
   cpu: "rgba(96,165,250,0.08)",
   gpu: "rgba(245,165,36,0.10)",
+  mining: "rgba(192,132,252,0.14)",
 };
 
 /** GPU temperature (°C) and load (%) over the test, with CPU/GPU phases shaded. */

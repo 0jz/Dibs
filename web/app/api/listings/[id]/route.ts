@@ -1,7 +1,17 @@
 import { requireStaff } from "@/lib/auth";
-import { updateDb } from "@/lib/db";
+import { readDb, updateDb } from "@/lib/db";
+import { reportView, solanaCheck } from "@/lib/escrow/lookup";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+// Shop report (laptop or GPU) plus the Solana listing account, if this price is an escrow.
+export async function GET(_request: Request, { params }: Ctx) {
+  const { id } = await params;
+  const listing = readDb().listings.find((item) => item.id === id);
+  if (!listing) return Response.json({ error: "not found" }, { status: 404 });
+  const solana = await solanaCheck(listing);
+  return Response.json({ ...reportView(listing), solana });
+}
 
 // Staff: mark a listing sold / back on sale.
 export async function PATCH(request: Request, { params }: Ctx) {

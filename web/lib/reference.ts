@@ -1,14 +1,18 @@
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
+import { deviceKey } from "@/lib/format";
+
+export { deviceKey };
 
 export type RefScene = {
   label: string;
   id: string;
   n: number;
-  medianS: number;
-  p25: number;
-  p75: number;
+  /** Blender samples per minute. Higher is faster. */
+  spm: { p5: number; p10: number; p25: number; median: number; p75: number; p95: number };
+  /** Present when the catalog was built with version filtering. */
+  blenderVersion?: string;
 };
 
 export type RefDevice = {
@@ -34,16 +38,6 @@ type Catalog = {
 
 const FILE = path.join(process.cwd(), "reference", "blender.json");
 const PHONE_FILE = path.join(process.cwd(), "reference", "phones.json");
-
-export function deviceKey(name: string) {
-  return name
-    .toUpperCase()
-    .replace(/\(R\)|\(TM\)|\(C\)/gi, " ")
-    .replace(/\b(NVIDIA|GEFORCE|AMD|RADEON|INTEL|ARC|CORPORATION|INC)\b/gi, " ")
-    .replace(/[^A-Z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 let catalog: Catalog | null | undefined;
 
