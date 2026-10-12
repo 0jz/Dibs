@@ -104,14 +104,19 @@ export function SessionLive({ initial, partRows: initialRows, servers }: { initi
           <p className="mt-4 text-sm text-zinc-500">This code works once. A second run, including a different tier, needs a new test.</p>
           <ol className="mt-6 space-y-4 text-sm text-zinc-300">
             <li>
-              <span className="text-zinc-500">1.</span> Download the agent on the device:{" "}
-              <a href={`${server}/dibs_agent.py`} download className="text-amber-300 hover:underline">{server}/dibs_agent.py</a>
+              <span className="text-zinc-500">1.</span> On the device, open this page. It has the download and the code:
+              <div className="mt-2 max-w-3xl">
+                <CopyCommand command={`${server}/run/${session.code}`} />
+              </div>
             </li>
             <li>
-              <span className="text-zinc-500">2.</span> Run it. A laptop stays on Light unless you pick a longer tier, and that longer tier needs the charger.
-              <div className="mt-2 max-w-3xl">
-                <CopyCommand command={`python dibs_agent.py test --server ${server} --code ${session.code}${session.stressTier ? ` --tier ${session.stressTier}` : ""}`} />
-              </div>
+              <span className="text-zinc-500">2.</span> Run the downloaded agent. A laptop stays on Light unless you pick a longer tier, and that longer tier needs the charger.
+              <details className="mt-2 text-zinc-400">
+                <summary className="cursor-pointer text-xs text-zinc-500">Command line instead</summary>
+                <div className="mt-2 max-w-3xl">
+                  <CopyCommand command={`python dibs_agent.py test --server ${server} --code ${session.code}${session.stressTier ? ` --tier ${session.stressTier}` : ""}`} />
+                </div>
+              </details>
             </li>
             <li>
               <span className="text-zinc-500">3.</span> Phone (open on the phone, same Wi-Fi). Stress is capped at 20s, endurance at 25s:

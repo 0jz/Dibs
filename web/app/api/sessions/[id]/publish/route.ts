@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: Ctx) {
     return Response.json({ error: "Title, seller and a positive price are required" }, { status: 400 });
   }
 
-  const result = updateDb((db) => {
+  const result = await updateDb((db) => {
     const session = db.sessions.find((s) => s.id === id);
     if (!session) return { error: "Session not found", status: 404 };
     if (session.status === "published") return { error: "Already published", status: 400 };

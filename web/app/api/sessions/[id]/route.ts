@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   const denied = await requireStaff();
   if (denied) return denied;
   const { id } = await params;
-  const session = readDb().sessions.find((s) => s.id === id);
+  const session = (await readDb()).sessions.find((s) => s.id === id);
   if (!session) return Response.json({ error: "not found" }, { status: 404 });
   return Response.json({ ...session, partRows: sessionPartRows(session) });
 }
@@ -34,7 +34,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
     return Response.json({ error: "Sale scope must be the whole PC or one part" }, { status: 400 });
   }
 
-  const result = updateDb((db) => {
+  const result = await updateDb((db) => {
     const session = db.sessions.find((s) => s.id === id);
     if (!session) return { error: "not found", status: 404 as const };
     if (session.status !== "waiting") return { error: "This is chosen before the test starts", status: 409 as const };
@@ -58,7 +58,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   const denied = await requireStaff();
   if (denied) return denied;
   const { id } = await params;
-  const removed = updateDb((db) => {
+  const removed = await updateDb((db) => {
     const i = db.sessions.findIndex((s) => s.id === id && s.status !== "published");
     if (i === -1) return false;
     db.sessions.splice(i, 1);

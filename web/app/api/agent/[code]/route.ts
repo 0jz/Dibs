@@ -9,7 +9,7 @@ const MAX_SAMPLES = 600;
 
 export async function GET(_request: Request, { params }: Ctx) {
   const { code } = await params;
-  const session = readDb().sessions.find((s) => s.code === code.toUpperCase());
+  const session = (await readDb()).sessions.find((s) => s.code === code.toUpperCase());
   if (!session) return Response.json({ error: "Unknown session code" }, { status: 404 });
   return Response.json({
     abort: Boolean(session.abort),
@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: Ctx) {
   const body = await request.json().catch(() => null);
   if (!body?.type) return Response.json({ error: "bad payload" }, { status: 400 });
 
-  const result = updateDb((db) => {
+  const result = await updateDb((db) => {
     const session = db.sessions.find((s) => s.code === code.toUpperCase());
     if (!session) return { error: "Unknown session code", status: 404 };
     if (session.status === "published") return { error: "Session already published", status: 409 };

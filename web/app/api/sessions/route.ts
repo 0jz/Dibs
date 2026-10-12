@@ -5,7 +5,7 @@ import type { Session } from "@/lib/types";
 export async function GET() {
   const denied = await requireStaff();
   if (denied) return denied;
-  const sessions = readDb().sessions.map(({ samples, ...rest }) => ({ ...rest, sampleCount: samples.length }));
+  const sessions = (await readDb()).sessions.map(({ samples, ...rest }) => ({ ...rest, sampleCount: samples.length }));
   return Response.json(sessions.reverse());
 }
 
@@ -31,6 +31,6 @@ export async function POST() {
     hashrate: false,
     listingId: null,
   };
-  updateDb((db) => db.sessions.push(session));
+  await updateDb((db) => db.sessions.push(session));
   return Response.json(session);
 }

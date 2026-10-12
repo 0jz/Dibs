@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 // Shop report (laptop or GPU) plus the Solana listing account, if this price is an escrow.
 export async function GET(_request: Request, { params }: Ctx) {
   const { id } = await params;
-  const listing = readDb().listings.find((item) => item.id === id);
+  const listing = (await readDb()).listings.find((item) => item.id === id);
   if (!listing) return Response.json({ error: "not found" }, { status: 404 });
   const solana = await solanaCheck(listing);
   return Response.json({ ...reportView(listing), solana });
@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   if (status !== "for_sale" && status !== "sold") {
     return Response.json({ error: "status must be for_sale or sold" }, { status: 400 });
   }
-  const listing = updateDb((db) => {
+  const listing = await updateDb((db) => {
     const l = db.listings.find((x) => x.id === id);
     if (l) l.status = status;
     return l;

@@ -15,7 +15,7 @@ const STATUS: Record<SessionStatus, { label: string; tone: string }> = {
 
 export default async function Dashboard() {
   await connection();
-  const db = readDb();
+  const db = await readDb();
   const sessions = db.sessions.slice().reverse();
   const listings = db.listings.slice().reverse();
   const pending = sessions.filter((s) => s.status !== "published");

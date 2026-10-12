@@ -26,7 +26,7 @@ const STEPS = [
 
 export default async function Home() {
   await connection();
-  const db = readDb();
+  const db = await readDb();
   const listings = db.listings.slice().reverse();
   const forSale = listings.filter((l) => l.status === "for_sale");
 

@@ -1,6 +1,5 @@
 import "server-only";
 import type { DB, Listing, Session } from "@/lib/types";
-import { readDb } from "@/lib/db";
 import { scoreJunkshop } from "@/lib/performance";
 import {
   buildPartRows,
@@ -28,6 +27,6 @@ export function listingPartRows(listing: Listing, _db?: DB) {
   return buildPartRows(input, performanceFor(input));
 }
 
-export function listingPerformanceRows(listing: Listing, db: DB = readDb()) {
+export function listingPerformanceRows(listing: Listing, db?: DB) {
   return listingPartRows(listing, db);
 }

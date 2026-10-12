@@ -99,6 +99,23 @@ npm run dev:lan        # serves on port 3000, reachable from other PCs on the LA
 
 **Files:** `web/public/dibs_agent.py` (agent), `web/app/api/*` (agent/session/publish/verify endpoints), `web/components/admin/SessionLive.tsx` (live test view), `web/app/listing/[id]` (public report).
 
+## Deploy on Vercel
+
+1. Import the repo with **Root Directory = `web`**.
+2. Add **Upstash Redis** from the Vercel Marketplace. It sets `KV_REST_API_URL` and `KV_REST_API_TOKEN`; with those present the app stores everything there (one document, compare-and-set writes) instead of `web/data/db.json`. Without them it falls back to the local file, which does not persist on Vercel.
+3. Environment variables:
+
+| Variable | Why |
+|---|---|
+| `DIBS_ADMIN_PASSWORD` | Staff login. **Required in production**: without it nobody can log in, because the repo is public. |
+| `DIBS_STORE_NAME` | Shop name on reports |
+| `SHOP_KEYPAIR` | Shop signing key, the JSON array from `keypairs/devnet-admin.json`. Mark it sensitive. |
+| `NEXT_PUBLIC_PROGRAM_ID` | Deployed escrow program |
+| `NEXT_PUBLIC_SOLANA_RPC` | Optional RPC override |
+| `DIBS_AGENT_URL` | Where `/download` sends people: the built `dibs-agent.exe` |
+
+**Customer agent.** Run the *Build agent* workflow (Actions tab), or push a tag like `agent-v1`, with the public site address as the `server` input. It builds `dibs-agent.exe` with PyInstaller and attaches it to the release; put that asset's URL in `DIBS_AGENT_URL`. The customer opens `https://<site>/run/<code>`, downloads, double-clicks, and types the code. The exe is unsigned, so Windows SmartScreen will warn until it is code-signed.
+
 ## Smart contracts (Solidity, Foundry, Monad)
 
 **`StoreRegistry`**

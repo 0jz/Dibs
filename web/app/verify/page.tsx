@@ -7,7 +7,7 @@ import { CopyCommand } from "@/components/CopyCommand";
 
 export default async function VerifyPage() {
   const server = await publicOrigin();
-  const db = readDb();
+  const db = await readDb();
   const recent = db.verifications.slice(-8).reverse();
   const title = (id: string) => db.listings.find((l) => l.id === id)?.title ?? "Unknown listing";
 

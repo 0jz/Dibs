@@ -1,0 +1,39 @@
+name: Build agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      server:
+        description: Public Dibs address baked into the exe (for example https://dibs.vercel.app)
+        required: false
+  push:
+    tags: ["agent-v*"]
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bake in the server address
+        if: ${{ inputs.server != '' || vars.DIBS_SERVER != '' }}
+        shell: pwsh
+        run: |
+          $server = "${{ inputs.server }}"
+          if (-not $server) { $server = "${{ vars.DIBS_SERVER }}" }
+          (Get-Content web/public/dibs_agent.py) -replace 'DEFAULT_SERVER = ""', "DEFAULT_SERVER = `"$server`"" | Set-Content web/public/dibs_agent.py
+      - name: Build
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile --name dibs-agent web/public/dibs_agent.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dibs-agent
+          path: dist/dibs-agent.exe
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/agent-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/dibs-agent.exe

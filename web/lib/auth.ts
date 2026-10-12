@@ -4,12 +4,21 @@ import { cookies } from "next/headers";
 
 export const ADMIN_COOKIE = "dibs_staff";
 
-const password = () => process.env.DIBS_ADMIN_PASSWORD ?? "dibs";
+// The repo is public, so the "dibs" fallback is for local dev only. A production
+// deployment without DIBS_ADMIN_PASSWORD has no staff login at all.
+const password = () => process.env.DIBS_ADMIN_PASSWORD ?? (process.env.NODE_ENV === "production" ? null : "dibs");
 
-export const sessionToken = () =>
-  crypto.createHash("sha256").update(`dibs-staff:${password()}`).digest("hex");
+export const sessionToken = () => {
+  const pw = password();
+  // No password set in production: a token nobody can present.
+  if (pw === null) return crypto.randomBytes(32).toString("hex");
+  return crypto.createHash("sha256").update(`dibs-staff:${pw}`).digest("hex");
+};
 
-export const checkPassword = (input: string) => input === password();
+export const checkPassword = (input: string) => {
+  const pw = password();
+  return pw !== null && input === pw;
+};
 
 export async function isStaff() {
   return (await cookies()).get(ADMIN_COOKIE)?.value === sessionToken();

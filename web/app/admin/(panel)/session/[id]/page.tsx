@@ -6,7 +6,7 @@ import { SessionLive } from "@/components/admin/SessionLive";
 
 export default async function SessionPage({ params }: PageProps<"/admin/session/[id]">) {
   const { id } = await params;
-  const db = readDb();
+  const db = await readDb();
   const session = db.sessions.find((s) => s.id === id);
   if (!session) notFound();
 

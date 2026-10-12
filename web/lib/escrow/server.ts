@@ -11,10 +11,10 @@ import { readDb } from "@/lib/db";
 
 export const connection = () => new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC ?? DEVNET_RPC, "confirmed");
 
-export function listingEscrow(listingId: string) {
+export async function listingEscrow(listingId: string) {
   const program = programId();
   const admin = adminKeypair();
-  const listing = readDb().listings.find((l) => l.id === listingId);
+  const listing = (await readDb()).listings.find((l) => l.id === listingId);
   if (!program || !admin) return { error: "Escrow program is not deployed on this machine yet", status: 503 as const };
   if (!listing) return { error: "Listing not found", status: 404 as const };
   if ((listing.currency !== "SOL" && listing.currency !== "USDC") || !listing.sellerWallet || !listing.priceBase) {
@@ -29,7 +29,7 @@ export function payerAtas(payer: PublicKey, owner: PublicKey, mint: PublicKey) {
 }
 
 export async function openTransaction(listingId: string) {
-  const loaded = listingEscrow(listingId);
+  const loaded = await listingEscrow(listingId);
   if ("error" in loaded) return loaded;
   const { program, admin, listing } = loaded;
   const seller = new PublicKey(listing.sellerWallet!);

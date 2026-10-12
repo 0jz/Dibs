@@ -15,7 +15,7 @@ import { STRESS_TIERS, isStressTier } from "@/lib/tests";
 
 export default async function ListingPage({ params }: PageProps<"/listing/[id]">) {
   const { id } = await params;
-  const db = readDb();
+  const db = await readDb();
   const listing = db.listings.find((l) => l.id === id);
   if (!listing) notFound();
 

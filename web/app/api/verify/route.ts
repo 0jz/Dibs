@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "listingId and deviceHash are required" }, { status: 400 });
   }
 
-  const result = updateDb((db) => {
+  const result = await updateDb((db) => {
     const listing = db.listings.find((l) => l.id === body.listingId);
     if (!listing) return null;
     const partHashes: string[] = Array.isArray(body.partHashes) ? body.partHashes.map(String) : [];
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   });
 
   if (!result) return Response.json({ error: "Listing not found" }, { status: 404 });
-  const listing = readDb().listings.find((item) => item.id === result.listingId);
+  const listing = (await readDb()).listings.find((item) => item.id === result.listingId);
   const solana = listing ? await solanaCheck(listing) : null;
   return Response.json({ ...result, solana });
 }

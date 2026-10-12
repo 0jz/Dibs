@@ -3,8 +3,12 @@
 
 Runs on the machine being tested (Windows, Python 3.9+, standard library only).
 
-  Store test:   python dibs_agent.py test   --server http://192.168.1.10:3000 --code ABC123
-  Buyer check:  python dibs_agent.py verify --server http://192.168.1.10:3000 --listing <listing-id>
+  Double-click (dibs-agent.exe) or run with no arguments: it asks for the code.
+  Store test:   python dibs_agent.py test   --code ABC123
+  Buyer check:  python dibs_agent.py verify --listing <listing-id>
+
+The server comes from --server, the DIBS_SERVER environment variable, a dibs_server.txt
+file next to the agent, or the DEFAULT_SERVER constant below (set at build time).
 """
 
 import argparse
@@ -44,6 +48,9 @@ def ps_json(command):
     data = json.loads(raw)
     return data if isinstance(data, list) else [data]
 
+
+# Public site the packaged agent talks to. Empty in the repo; the exe build sets it.
+DEFAULT_SERVER = ""
 
 # Durations and fallback abort temperatures. Keep in sync with web/lib/tests.ts.
 # Prefer nvidia-smi GPU Slowdown Temp, then the shop model table, then these.
@@ -799,13 +806,71 @@ def cmd_verify(args):
     print(f"  fingerprint {dhash}")
 
 
+def app_dir():
+    base = sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__)
+    return os.path.dirname(base)
+
+
+def resolve_server(arg):
+    """--server, then DIBS_SERVER, then dibs_server.txt beside the agent, then the built-in default."""
+    if arg:
+        return arg.rstrip("/")
+    env = (os.environ.get("DIBS_SERVER") or "").strip()
+    if env:
+        return env.rstrip("/")
+    try:
+        with open(os.path.join(app_dir(), "dibs_server.txt"), encoding="utf-8") as f:
+            line = f.readline().strip()
+            if line:
+                return line.rstrip("/")
+    except OSError:
+        pass
+    return DEFAULT_SERVER.rstrip("/") if DEFAULT_SERVER else ""
+
+
+def clean_code(raw):
+    """Accept the bare code or a pasted link such as https://site/run/ABC123."""
+    value = (raw or "").strip().rstrip("/")
+    return value.split("/")[-1].split("?")[0].upper()
+
+
+def ask(prompt):
+    try:
+        return input(prompt).strip()
+    except EOFError:
+        return ""
+
+
+def pause():
+    if sys.stdin and sys.stdin.isatty():
+        ask("\nPress Enter to close this window.")
+
+
+def interactive(args):
+    print("Dibs test agent\n")
+    server = resolve_server(args.server) or ask("Dibs address (for example https://dibs.example.com): ").rstrip("/")
+    if not server:
+        print("No address given.")
+        return None
+    entry = ask("Code from the shop, or the listing ID for a delivery check: ")
+    if not entry:
+        print("Nothing entered.")
+        return None
+    code = clean_code(entry)
+    if len(code) == 6 and code.isalnum():
+        return argparse.Namespace(command="test", server=server, code=code, tier=None,
+                                  cpu_seconds=None, gpu_seconds=None, memory_seconds=None, func=cmd_test)
+    return argparse.Namespace(command="verify", server=server, listing=entry.strip().split("/")[-1], func=cmd_verify)
+
+
 def main():
     p = argparse.ArgumentParser(description="Dibs test agent")
-    sub = p.add_subparsers(dest="command", required=True)
+    p.add_argument("--server", default=None, help="Dibs address. Optional when the agent was built with one")
+    sub = p.add_subparsers(dest="command", required=False)
 
     t = sub.add_parser("test", help="run the store test and upload results")
-    t.add_argument("--server", required=True)
-    t.add_argument("--code", required=True, help="session code from the staff panel")
+    t.add_argument("--server", default=None)
+    t.add_argument("--code", required=True, help="session code or link from the staff panel")
     t.add_argument("--tier", choices=sorted(TIERS), default=None,
                    help="light, standard, or bench. Omit to use the session, or Light on a laptop and Standard on a desktop")
     t.add_argument("--cpu-seconds", type=int, default=None, help="optional shorter CPU run, cannot exceed the tier")
@@ -814,14 +879,34 @@ def main():
     t.set_defaults(func=cmd_test)
 
     v = sub.add_parser("verify", help="buyer: check a delivered device against its listing")
-    v.add_argument("--server", required=True)
+    v.add_argument("--server", default=None)
     v.add_argument("--listing", required=True)
     v.set_defaults(func=cmd_verify)
 
     args = p.parse_args()
+    walk_up = args.command is None
+    if walk_up:
+        args = interactive(args)
+        if args is None:
+            pause()
+            sys.exit(1)
+    else:
+        args.server = resolve_server(args.server)
+        if not args.server:
+            print("No Dibs address. Pass --server, set DIBS_SERVER, or put it in dibs_server.txt next to the agent.")
+            sys.exit(2)
+        if args.command == "test":
+            args.code = clean_code(args.code)
+
+    failed = False
     try:
         args.func(args)
     except (urllib.error.URLError, urllib.error.HTTPError):
+        failed = True
+    finally:
+        if walk_up or getattr(sys, "frozen", False):
+            pause()
+    if failed:
         sys.exit(1)
 
 
